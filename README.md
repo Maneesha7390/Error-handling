@@ -8,7 +8,7 @@ To install the module, run:
 
 ```bash
 npm install ahex-error-response-utils
-
+```
 
 ## Usage
 
