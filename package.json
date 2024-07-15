@@ -1,5 +1,5 @@
 {
-  "name": "sendresponse_and_framingerrormsg",
+  "name": "@ahex/errorResponseUtils",
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {

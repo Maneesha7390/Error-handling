@@ -83,7 +83,7 @@ class Pagination {
     }
   }
 
-export function handleError(err, req, res, next) {
+function handleError(err, req, res, next) {
   logger.exception(err);
   if (err instanceof NoResponseError) {
     return;
@@ -97,7 +97,7 @@ export function handleError(err, req, res, next) {
   }
 }
 
-export function sendResponse(req, res, next, items = {}, statusModel = new Status(), pagination = '') {
+function sendResponse(req, res, next, items = {}, statusModel = new Status(), pagination = '') {
     const response = {};
     
     if (items != null) {
