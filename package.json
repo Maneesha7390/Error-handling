@@ -1,5 +1,5 @@
 {
-  "name": "@ahex/errorResponseUtils",
+  "name": "@ahex/error-response-utils",
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {

@@ -7,7 +7,7 @@ This module provides a set of classes and functions for handling errors and send
 To install the module, run:
 
 ```bash
-npm install @ahex/errorResponseUtils
+npm install @ahex/error-response-utils
 
 
 ## Usage
