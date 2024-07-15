@@ -23,7 +23,7 @@
     "url": "https://github.com/Maneesha7390/Error-handling/issues"
   },
   "homepage": "https://github.com/Maneesha7390/Error-handling#readme",
-  "description": "",
+  "description": "This module provides a set of classes and functions for handling errors and sending responses in a Node.js application. It includes custom error classes, a status class, pagination support, and utility functions for error handling and sending structured responses.",
   "dependencies": {
     "moment": "^2.30.1",
     "nodemon": "^3.1.4"
