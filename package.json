@@ -1,6 +1,6 @@
 {
-  "name": "ahex-error-response-utils",
-  "version": "1.0.1",
+  "name": "@ahextechnology/sucess-error-responses",
+  "version": "1.0.0",
   "main": "app.js",
   "scripts": {
     "start": "nodemon app.js"

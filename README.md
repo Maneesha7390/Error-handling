@@ -7,7 +7,7 @@ This module provides a set of classes and functions for handling errors and send
 To install the module, run:
 
 ```bash
-npm install ahex-error-response-utils
+npm install @ahextechnology/sucess-error-responses
 ```
 
 ## Usage
@@ -28,6 +28,8 @@ const logger = require('./shared/utils/logger');
 const ERROR_MESSAGES = require('./shared/enums/error-messages');
 const AUDIT_STATUS = require('./shared/enums/audit-logs-enums').Status;
 ```
+## Note: 
+Reassign the Error messages path to respective paths
 
 ### Example Usage
 
