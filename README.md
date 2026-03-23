@@ -1,177 +1,214 @@
-# Error Handling and Response Module
+# @ahextechnology/sucess-error-responses
 
-This module provides a set of classes and functions for handling errors and sending responses in a Node.js application. It includes custom error classes, a status class, pagination support, and utility functions for error handling and sending structured responses.
+Utility package for consistent API responses in Node.js/Express applications.
+
+It supports:
+- Legacy response format (`sendResponse`, `handleError`, `Status`, `Pagination`)
+- Standardized success/error envelopes (`successResponse`, `errorResponse`)
+- Custom application errors (`AppError`, `createErrorCatalog`, `errorResponseFromError`)
 
 ## Installation
-
-To install the module, run:
 
 ```bash
 npm install @ahextechnology/sucess-error-responses
 ```
 
-## Usage
+## Exports
 
-### Importing the Module
-
-```javascript
+```js
 const {
+  // Legacy API
   NoResponseError,
   ServerError,
   ClientError,
   Status,
   Pagination,
   handleError,
-  sendResponse
-} = require('your-package-name');
-const logger = require('./shared/utils/logger');
-const ERROR_MESSAGES = require('./shared/enums/error-messages');
-const AUDIT_STATUS = require('./shared/enums/audit-logs-enums').Status;
+  sendResponse,
+
+  // Standardized API
+  successResponse,
+  errorResponse,
+  errorResponseFromError,
+  SuccessResponse,
+  ErrorResponse,
+  Meta,
+  ErrorDetail,
+
+  // Custom error utilities
+  AppError,
+  createErrorCatalog,
+} = require('@ahextechnology/sucess-error-responses');
 ```
-## Note: 
-Reassign the Error messages path to respective paths
 
-### Example Usage
+## Standardized Response Format
 
-#### Error Handling
+### Success response shape
 
-```javascript
+```json
+{
+  "success": true,
+  "message": "User fetched successfully",
+  "data": { "id": 1, "name": "John" },
+  "meta": null,
+  "timestamp": "2026-03-23T06:58:26.641Z"
+}
+```
+
+### Error response shape
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "statusCode": 422,
+    "details": [
+      { "field": "email", "message": "Email is required" }
+    ]
+  },
+  "timestamp": "2026-03-23T06:58:26.641Z"
+}
+```
+
+## Usage
+
+### 1) successResponse
+
+```js
 const express = require('express');
+const { successResponse } = require('@ahextechnology/sucess-error-responses');
+
 const app = express();
 
-app.use(express.json());
-
-app.get('/example', async (req, res, next) => {
-    try {
-        // Simulate an error
-        throw new ServerError(500, ERROR_MESSAGES.INTERNAL_SERVER_ERROR_500, ERROR_MESSAGES.CONTACT_ADMINISTRATOR);
-    } catch (err) {
-        // Handle the error
-        handleError(err, req, res, next);
-    }
-});
-
-// Middleware for handling errors
-app.use((err, req, res, next) => {
-    handleError(err, req, res, next);
-});
-
-app.listen(3000, () => {
-    console.log('Server is running on port 3000');
+app.get('/user/:id', (req, res) => {
+  const user = { id: Number(req.params.id), name: 'John' };
+  return successResponse(res, 'User fetched successfully', user);
 });
 ```
 
-#### Sending Responses
+With pagination metadata:
 
-```javascript
-app.get('/data', (req, res, next) => {
-    const data = { key: 'value' };
-    const status = new Status(200, 'Success', 'Data fetched successfully');
-    sendResponse(req, res, next, data, status);
+```js
+const { successResponse } = require('@ahextechnology/sucess-error-responses');
+
+app.get('/users', (req, res) => {
+  const users = [{ id: 1 }, { id: 2 }];
+  return successResponse(
+    res,
+    'Users listed',
+    users,
+    { page: 1, limit: 10, total: 25 } // meta
+  );
 });
 ```
 
-#### Pagination
+### 2) errorResponse
 
-```javascript
-app.get('/items', (req, res, next) => {
-    const items = [{ id: 1 }, { id: 2 }];
-    const status = new Status(200, 'Success', 'Items fetched successfully');
-    const pagination = new Pagination('id', 'asc', 2, 10, 1, false);
-    sendResponse(req, res, next, items, status, pagination);
+```js
+const { errorResponse, ErrorDetail } = require('@ahextechnology/sucess-error-responses');
+
+app.get('/not-found', (req, res) => {
+  return errorResponse(res, 'User not found', 'USER_NOT_FOUND', 404);
+});
+
+app.get('/validation', (req, res) => {
+  const details = [
+    new ErrorDetail('email', 'Email is required'),
+    new ErrorDetail('password', 'Password must be at least 8 characters'),
+  ];
+  return errorResponse(res, 'Validation failed', 'VALIDATION_ERROR', 422, details);
 });
 ```
 
-## Classes
+Masked error example (hide real HTTP status from clients):
 
-### NoResponseError
-
-This class represents an error that occurs when there is no response.
-
-```javascript
-class NoResponseError extends Error {
-    constructor(status = 500, message = ERROR_MESSAGES.INTERNAL_SERVER_ERROR_500, description = ERROR_MESSAGES.CONTACT_ADMINISTRATOR) {
-        super(message);
-        this.message = message;
-        this.status = status;
-        this.description = description;
-    }
-}
+```js
+return errorResponse(
+  res,
+  'Database connection failed',
+  'DB_CONNECTION_FAILED',
+  503,   // real status
+  null,
+  true,  // maskError
+  1001   // body.error.statusCode
+);
 ```
 
-### ServerError
+### 3) AppError + createErrorCatalog + errorResponseFromError
 
-This class represents a server-side error.
+```js
+const {
+  createErrorCatalog,
+  errorResponseFromError,
+} = require('@ahextechnology/sucess-error-responses');
 
-```javascript
-class ServerError extends Error {
-    constructor(status = 500, message = ERROR_MESSAGES.INTERNAL_SERVER_ERROR_500, description = ERROR_MESSAGES.CONTACT_ADMINISTRATOR) {
-        super(message);
-        this.message = message;
-        this.status = status;
-        this.description = description;
-    }
-}
+const DB_ERRORS = createErrorCatalog({
+  CONNECTION_FAILED: {
+    message: 'Database connection failed',
+    code: 'DB_CONNECTION_FAILED',
+    statusCode: 503,
+    errorNumber: 1001,
+  },
+  RECORD_NOT_FOUND: {
+    message: 'Record not found',
+    code: 'NOT_FOUND',
+    statusCode: 404,
+  },
+});
+
+app.get('/catalog-error', (req, res) => {
+  return errorResponseFromError(res, DB_ERRORS.CONNECTION_FAILED, true);
+});
 ```
 
-### ClientError
+## Legacy API (Backward Compatibility)
 
-This class represents a client-side error.
+The original API is still available:
+- `sendResponse(req, res, next, items, statusModel, pagination)`
+- `handleError(err, req, res, next)`
+- `Status`, `Pagination`
+- `NoResponseError`, `ServerError`, `ClientError`
 
-```javascript
-class ClientError extends Error {
-    constructor(status, message, description = '') {
-        super(message);
-        this.message = message;
-        this.status = status;
-        this.description = description;
-    }
-}
+Example:
+
+```js
+const {
+  sendResponse,
+  Status,
+  Pagination,
+} = require('@ahextechnology/sucess-error-responses');
+
+app.get('/legacy/items', (req, res, next) => {
+  const items = [{ id: 1 }, { id: 2 }];
+  const status = new Status(200, 'Success', 'Items fetched successfully');
+  const pagination = new Pagination('id', 'asc', 2, 10, 1, false);
+  return sendResponse(req, res, next, items, status, pagination);
+});
 ```
 
-## Status Class
+## Local Verification
 
-The `Status` class represents the status of a response.
-
-```javascript
-class Status {
-    constructor(code = 200, message = '', description = '') {
-        this.code = code;
-        this.message = message;
-        this.description = description;
-    }
-}
+```bash
+npm test
 ```
 
-## Pagination Class
+## Publish Checklist (npm)
 
-The `Pagination` class provides pagination support for responses.
-
-```javascript
-class Pagination {
-    constructor(sortColumn, sortDirection = 'asc', total = 1, pageSize = 10, pageIndex = 1, hasMore) {
-        this.sortColumn = sortColumn;
-        this.sortDirection = sortDirection;
-        this.total = total;
-        this.pageSize = pageSize;
-        this.pageIndex = pageIndex;
-        if (hasMore != null) {
-            this.hasMore = hasMore;
-        }
-    }
-}
-```
-
-## Functions
-
-### handleError
-
-The `handleError` function logs the error and sends a response with the appropriate status and message.
-
-### sendResponse
-
-The `sendResponse` function sends a structured response.
+1. Update `version` in `package.json` (semver).
+2. Confirm package name is correct: `@ahextechnology/sucess-error-responses`.
+3. Run:
+   ```bash
+   npm install
+   npm test
+   ```
+4. Login and publish:
+   ```bash
+   npm login
+   npm publish --access public
+   ```
 
 ## License
 
-This project is licensed under the MIT License
+ISC
