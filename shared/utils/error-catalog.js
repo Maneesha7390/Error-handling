@@ -1,6 +1,6 @@
 'use strict';
 
-const AppError = require('./app-error.model');
+const AppError = require('../models/app-error.model');
 
 /**
  * createErrorCatalog — helper to build an immutable dictionary of AppErrors.

@@ -7,6 +7,7 @@ const Meta = require('./shared/models/meta.model');
 const ErrorDetail = require('./shared/models/error-detail.model');
 const AppError = require('./shared/models/app-error.model');
 const { createErrorCatalog } = require('./shared/utils/error-catalog');
+const STATUS_TYPE = require('./shared/enums/response-status');
 
 class NoResponseError extends Error {
   /**
