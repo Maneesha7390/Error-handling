@@ -33,6 +33,7 @@ const {
   SuccessResponse,
   ErrorResponse,
   Meta,
+  Facets,
   ErrorDetail,
 
   // Custom error utilities
@@ -52,6 +53,65 @@ const {
   "data": { "id": 1, "name": "John" },
   "meta": null,
   "timestamp": "2026-03-23T06:58:26.641Z"
+}
+```
+
+### Paginated search response shape
+
+```json
+{
+  "success": true,
+  "message": "Search results",
+  "data": [ { "id": 1, "name": "iPhone 15" } ],
+  "meta": {
+    "query": "iphone",
+    "page": 1,
+    "limit": 10,
+    "total": 125,
+    "totalPages": 13,
+    "hasNext": true,
+    "hasPrev": false,
+    "nextPage": 2,
+    "prevPage": null,
+    "offset": 0,
+    "sortBy": "price",
+    "sortOrder": "desc",
+    "filters": { "brand": "Apple", "priceMin": 100 }
+  },
+  "facets": {
+    "brand":    [ { "name": "Apple",  "count": 40 }, { "name": "Samsung", "count": 30 } ],
+    "category": [ { "name": "Phones", "count": 80 } ]
+  },
+  "timestamp": "2026-03-23T06:58:26.641Z"
+}
+```
+
+#### `meta` fields
+
+| Field        | Type                 | Notes                                                    |
+| ------------ | -------------------- | -------------------------------------------------------- |
+| `query`      | `string` *(optional)*| Original search query; included only when provided.      |
+| `page`       | `number`             | Current page, 1-based.                                   |
+| `limit`      | `number`             | Items per page.                                          |
+| `total`      | `number`             | Total items across all pages.                            |
+| `totalPages` | `number`             | Auto-computed as `Math.ceil(total / limit)`.             |
+| `hasNext`    | `boolean`            | `true` when `page < totalPages`.                         |
+| `hasPrev`    | `boolean`            | `true` when `page > 1`.                                  |
+| `nextPage`   | `number \| null`     | `page + 1` or `null`.                                    |
+| `prevPage`   | `number \| null`     | `page - 1` or `null`.                                    |
+| `offset`     | `number`             | `(page - 1) * limit` — handy for DB `LIMIT`/`OFFSET`.    |
+| `sortBy`     | `string` *(optional)*| Sort field, echoed back to the client.                   |
+| `sortOrder`  | `'asc' \| 'desc'`    | Sort direction *(optional)*.                             |
+| `filters`    | `object` *(optional)*| Applied filters, echoed back to the client.              |
+
+#### `facets` shape
+
+Each facet key maps to an array of buckets. Buckets accept either `name` or `value` as the label and are normalised to `{ name, count }`. Any extra properties on a bucket (e.g. `selected: true`) are preserved:
+
+```json
+{
+  "brand":      [ { "name": "Apple", "count": 40 } ],
+  "priceRange": [ { "name": "0-500", "count": 50, "selected": true } ]
 }
 ```
 
@@ -88,7 +148,7 @@ app.get('/user/:id', (req, res) => {
 });
 ```
 
-With pagination metadata:
+With pagination metadata (legacy signature — still supported):
 
 ```js
 const { successResponse } = require('@ahextechnology/sucess-error-responses');
@@ -99,10 +159,39 @@ app.get('/users', (req, res) => {
     res,
     'Users listed',
     users,
-    { page: 1, limit: 10, total: 25 } // meta
+    { page: 1, limit: 10, total: 25 } // meta (hasNext/hasPrev/totalPages auto-filled)
   );
 });
 ```
+
+Production-ready paginated search with `meta` **and** `facets`:
+
+```js
+const { successResponse } = require('@ahextechnology/sucess-error-responses');
+
+app.get('/products/search', (req, res) => {
+  const products = [ /* ...page of results... */ ];
+
+  return successResponse(res, 'Search results', products, {
+    meta: {
+      query: req.query.q,           // 'iphone'
+      page: Number(req.query.page)  || 1,
+      limit: Number(req.query.limit) || 10,
+      total: 125,                    // total matches in your DB
+      sortBy: 'price',
+      sortOrder: 'desc',
+      filters: { brand: 'Apple', priceMin: 100 },
+    },
+    facets: {
+      brand:    [{ name: 'Apple',  count: 40 }, { name: 'Samsung', count: 30 }],
+      category: [{ name: 'Phones', count: 80 }],
+    },
+    // httpStatus: 200, // optional override
+  });
+});
+```
+
+When the 4th argument contains a `meta`, `facets`, or `httpStatus` key, it is treated as an options bag. Otherwise it is treated as the legacy `meta` object, so existing callers keep working unchanged.
 
 ### 2) errorResponse
 

@@ -4,6 +4,7 @@ const AUDIT_STATUS = require('./shared/enums/audit-logs-enums').Status;
 const SuccessResponse = require('./shared/models/success-response.model');
 const ErrorResponse = require('./shared/models/error-response.model');
 const Meta = require('./shared/models/meta.model');
+const Facets = require('./shared/models/facets.model');
 const ErrorDetail = require('./shared/models/error-detail.model');
 const AppError = require('./shared/models/app-error.model');
 const { createErrorCatalog } = require('./shared/utils/error-catalog');
@@ -192,19 +193,75 @@ function createStatusObject(statusModel) {
 /**
  * Send a standardised success response.
  *
- * @param {object}           res      - Express response object
- * @param {string}           message  - Human-readable success message
- * @param {*}                [data=null]   - Payload to return
- * @param {object|Meta|null} [meta=null]  - Pagination metadata ({ page, limit, total, totalPages })
- * @param {number}           [httpStatus=200] - HTTP status code to send
+ * Two calling styles are supported. The 4th argument can be either:
+ *   1. Pagination/search meta directly (legacy)     — e.g. { page, limit, total }
+ *   2. An options bag                               — e.g. { meta, facets, httpStatus }
+ *
+ * The options-bag form is detected when the 4th argument is a plain object
+ * containing a `meta`, `facets`, or `httpStatus` key.
+ *
+ * @param {object} res
+ *        Express response object.
+ * @param {string} message
+ *        Human-readable success message.
+ * @param {*} [data=null]
+ *        Payload to return.
+ * @param {object|Meta|null} [metaOrOptions=null]
+ *        Either pagination/search meta, or an options bag:
+ *        { meta, facets, httpStatus }.
+ * @param {number} [httpStatus=200]
+ *        HTTP status code to send (ignored if metaOrOptions.httpStatus is set).
  *
  * @example
+ * // 1. Simple success
  * successResponse(res, 'User fetched successfully', user);
- * successResponse(res, 'Users listed', users, { page:1, limit:10, total:120, totalPages:12 });
+ *
+ * @example
+ * // 2. Paginated list (legacy signature still works)
+ * successResponse(res, 'Users listed', users, { page: 1, limit: 10, total: 120 });
+ *
+ * @example
+ * // 3. Production-ready search result with meta + facets
+ * successResponse(res, 'Search results', products, {
+ *   meta: {
+ *     query: 'iphone',
+ *     page: 1,
+ *     limit: 10,
+ *     total: 125,
+ *     sortBy: 'price',
+ *     sortOrder: 'desc',
+ *     filters: { brand: 'Apple', priceMin: 100 },
+ *   },
+ *   facets: {
+ *     brand:    [{ name: 'Apple',  count: 40 }, { name: 'Samsung', count: 30 }],
+ *     category: [{ name: 'Phones', count: 80 }],
+ *   },
+ * });
  */
-function successResponse(res, message, data = null, meta = null, httpStatus = 200) {
-  const body = new SuccessResponse(message, data, meta);
-  return res.status(httpStatus).json(body);
+function successResponse(res, message, data = null, metaOrOptions = null, httpStatus = 200) {
+  let meta = metaOrOptions;
+  let facets = null;
+  let status = httpStatus;
+
+  const isOptionsBag =
+    metaOrOptions != null &&
+    typeof metaOrOptions === 'object' &&
+    !Array.isArray(metaOrOptions) &&
+    !(metaOrOptions instanceof Meta) &&
+    ('meta' in metaOrOptions ||
+      'facets' in metaOrOptions ||
+      'httpStatus' in metaOrOptions);
+
+  if (isOptionsBag) {
+    meta = metaOrOptions.meta != null ? metaOrOptions.meta : null;
+    facets = metaOrOptions.facets != null ? metaOrOptions.facets : null;
+    if (metaOrOptions.httpStatus != null) {
+      status = metaOrOptions.httpStatus;
+    }
+  }
+
+  const body = new SuccessResponse(message, data, meta, facets);
+  return res.status(status).json(body);
 }
 
 /**
@@ -280,6 +337,7 @@ module.exports = {
   SuccessResponse,
   ErrorResponse,
   Meta,
+  Facets,
   ErrorDetail,
   // ── Custom error / catalog system ────────────────────────────────
   AppError,
